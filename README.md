@@ -60,29 +60,42 @@ $> ./gp_ldap_check -h
  -?	This help
 ```
 
-#Example
+#Example 1
 Here we test if user "someuser" can be found in ldap base directory "cn=Users,dc=saturn,dc=local" using username/password as "myuser/changeme".  if the command executes successfully then pg_hba.conf configuration settings will be generated automatically
 
 ```
- ./gpldap_tool -g -s ldap://server.domain.com -b "cn=Users,dc=saturn,dc=local" -d  "cn=myuser,cn=Users,dc=saturn,dc=local" -w changeme -f "(cn=someuser)"
- 
-  #-Connecting to host 172.21.160.54 at port 389 ...
-  #-LDAP Bind was successful!
-  #-Searching ou=Accounts,DC=zbc,DC=internal using filter (samAccountName=z036627)
-  #-Dumping Results:
-  Found dn: CN=Donald Brown,OU=TOPS,OU=Accounts,DC=zbc,DC=internal
-  #-Disconnecting from LDAP
-  Generating possible pg_hba.conf ldap configurations...
-  
-  No encryption:
-  1. Search multiple organizational unit template ( Password left empty )
-  ldap ldapserver="172.21.160.54" ldapport="389" ldapsearchattribute="cn" ldapbasedn="ou=Accounts,DC=zbc,DC=internal" ldapbinddn="cn=svc-greenplum,ou=Service   Accounts,ou=AdminResources,dc=zbc,dc=internal" ldapbindpasswd="<Enter Password Here>"
-  2. A user from the BaseDN
-  ldap ldapserver="172.21.160.54" ldapport="389" ldapprefix="cn=" ldapsuffix=",ou=Accounts,DC=zbc,DC=internal" 
-  
-  TLS Encryption enabled:
-  1. Search multiple organizational unit template ( Password left empty )
-  ldap ldapserver="172.21.160.54" ldapport="389" ldapsearchattribute="cn" ldapbasedn="ou=Accounts,DC=zbc,DC=internal" ldapbinddn="cn=svc-greenplum,ou=Service   Accounts,ou=AdminResources,dc=zbc,dc=internal" ldapbindpasswd="<Enter Password Here>" ldaptls=1
-  2. A user from the BaseDN
-  ldap ldapserver="172.21.160.54" ldapport="389" ldapprefix="cn=" ldapsuffix=",ou=Accounts,DC=zbc,DC=internal" ldaptls=1
+[root@pccadmin gp_ldap_check]# ./gp_ldap_check -g -s 172.28.18.60 -b "cn=Users,dc=support,dc=pivotal" -d "cn=danl,cn=Users,dc=support,dc=pivotal" -w Chang3m3 -f "(cn=d*)"
+
+#-Connecting to host 172.28.18.60 at port 389...
+#-LDAP Bind was successful!
+#-Searching cn=Users,dc=support,dc=pivotal using filter (cn=d*)
+#-Dumping Results:
+Found dn: CN=Domain Computers,CN=Users,DC=support,DC=pivotal
+Found dn: CN=Domain Controllers,CN=Users,DC=support,DC=pivotal
+Found dn: CN=Domain Admins,CN=Users,DC=support,DC=pivotal
+Found dn: CN=Domain Users,CN=Users,DC=support,DC=pivotal
+Found dn: CN=Domain Guests,CN=Users,DC=support,DC=pivotal
+Found dn: CN=Denied RODC Password Replication Group,CN=Users,DC=support,DC=pivotal
+Found dn: CN=DnsAdmins,CN=Users,DC=support,DC=pivotal
+Found dn: CN=DnsUpdateProxy,CN=Users,DC=support,DC=pivotal
+Found dn: CN=danl,CN=Users,DC=support,DC=pivotal
+#-Disconnecting from LDAP
+#~Outputing pg_hba.conf config settings:
+
+ldap ldapserver="172.28.18.60" ldapport="389" ldapsearchattribute="cn=" ldapbasedn="cn=Users,dc=support,dc=pivotal" ldapbinddn="cn=danl,cn=Users,dc=support,dc=pivotal" ldapbindpasswd="<Enter Password Here>"
+```
+
+#Example 2
+Test a single user bind request
+
+```
+[root@pccadmin gp_ldap_check]# ./gp_ldap_check -g -s 172.28.18.60 -b "cn=Users,dc=support,dc=pivotal" -d "cn=danl,cn=Users,dc=support,dc=pivotal"
+Password:
+
+#-Connecting to host 172.28.18.60 at port 389...
+#-LDAP Bind was successful!
+#-Disconnecting from LDAP
+#~Outputing pg_hba.conf config settings:
+
+ldap ldapserver="172.28.18.60" ldapport="389" ldapprefix="cn=" ldapsuffix=",cn=Users,dc=support,dc=pivotal"
 ```

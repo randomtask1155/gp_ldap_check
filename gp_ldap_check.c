@@ -3,19 +3,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-/* Specify the search criteria here. */
-//#define HOSTNAME "win-t66lm4e0ujj.saturn.local"
-//#define PORTNUMBER 636
-//#define BASEDN "cn=Users,dc=saturn,dc=local"
-//#define BIND_DN "cn=danl,cn=Users,dc=saturn,dc=local"
-//#define BIND_PW "changeme"
-//#define URL "ldaps://win-t66lm4e0ujj.saturn.local"
-//#define FILTER "(cn=danl)"
 #define SCOPE LDAP_SCOPE_SUBTREE
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void usage(){
-	printf("\nExample usage:\n");
-
+printf("\nExample usage:\n");
 printf(
 
 "./gpldap_tool -g -s ldap://server.domain.com -b \"cn=Users,dc=saturn,dc=local\" -d \"cn=myuser,cn=Users,dc=saturn,dc=local\" -w changeme -f \"(cn=someuser)\" \n\n"
@@ -55,11 +47,9 @@ printf(
 
 
 "Binding Options:\n"
-"\t-s\t(Required) URI for ldap host [ldap://|ldaps://]server.domain.com\n"
-"\t\tldap://ldapserver.domain.com communicates over port 389\n"
-"\t\tldaps://ldapserver.domain.com communicates over port 636\n"
-"\n\t-b\t(Required) Search path we apply the filter to\n"
-"\t\tSpecify \'(cn=username)\'  to search for a user within the BaseDN\n"
+"\t-s\t(Required) hostname or IP of ldap server\n"
+"\n\t-b\t(Required) Specify the Basedn\n"
+"\t\tExample: cn=Users,dc=domain,dc=com\n"
 "\n\t-d\t(Required) User that will bind with ldap\n"
 "\t\tThe user must be the full distinguished name like \"cn=user,ou=ASIA,dc=domain,dc=com\"\n"
 "\n\t-t\t(Optional) Send StartTLS request\n"
@@ -73,21 +63,79 @@ printf(
 
 }
 
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/* Parse out the prefix string
+*      Currently GPDB only supports the following filter format so we will too
+*      filter = palloc(strlen(attributes[0]) + strlen(port->user_name) + 4);
+*      sprintf(filter, "(%s=%s)", attributes[0],port->user_name);
+*/
+void getPrefix(char *filter, char *dest) {
+	char FilterPrefix[256];
+	int prefixPosition = 0;
+	size_t i;
+	for (i = 0; i < strlen(filter) && filter[i] != '\0'; i++) {
+		if ( filter[i] != 40 ) { // exclude (
+			FilterPrefix[prefixPosition] = filter[i];
+			prefixPosition += 1;
+			if ( filter[i] == 61 ) { // if we reached the = sign
+				FilterPrefix[prefixPosition] = '\0';
+				break;
+			}
+		}
+	}
+	strcpy(dest, FilterPrefix);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+typedef struct {
+        char *hostname;
+        int port;
+        char *filter;
+        char prefix[256];
+        char *binddn;
+        char *basedn;
+        int tls;
+} ldapconfig;
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/* Build the config strings based on the configuration */
+void dumpConfig(ldapconfig *ldcfg) {
+	char output[2048];
+	char printbuf[2048];
+
+	strcat(output, "ldap ");
+	if (ldcfg->tls) {
+		strcat(output, "ldaptls=1 ");
+	}
+	sprintf(printbuf, "ldapserver=\"%s\" ldapport=\"%d\" ", ldcfg->hostname, ldcfg->port);
+	strcat(output, printbuf);
+
+	// if there is a filter then print the search version otherwise print the bind version
+	if (ldcfg->filter != NULL ) {
+		sprintf(printbuf, "ldapsearchattribute=\"%s\" ldapbasedn=\"%s\" ldapbinddn=\"%s\" ldapbindpasswd=\"<Enter Password Here>\"", ldcfg->prefix, ldcfg->basedn, ldcfg->binddn);
+		strcat(output, printbuf);
+	} else {
+		sprintf(printbuf, "ldapprefix=\"%s\" ldapsuffix=\",%s\"", ldcfg->prefix, ldcfg->basedn);
+		strcat(output, printbuf);
+	}
+	printf("#~Outputing pg_hba.conf config settings:\n\n%s\n", output);	
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int main( int argc, char **argv )
 {
 	LDAP *ld;
 	LDAPMessage *result, *e;
 	char *dn;
-	char *LDAP_PREFIX = "ldap://";
-	char *LDAPS_PREFIX = "ldaps://";
 	int version, rc;
 	int opt;
 	extern char *optarg;
+	ldapconfig *ldcfg = malloc(sizeof(ldapconfig));
 
 	// Seupt the default LDAP params
 	int PORTNUMBER = 0;
 	int START_TLS = 0;
-	char *HOSTNAME;
 	char *BASEDN;
 	char *BIND_DN;
 	char *BIND_PW = NULL;
@@ -110,48 +158,38 @@ int main( int argc, char **argv )
 		{
 			case 'g':
 				GPDB = 1;
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 'l':
 				LDAPSEARCH = 1;
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 's':
 				URI = strdup(optarg);
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 't':
 				START_TLS = 1;
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 'p':
 				PORTNUMBER = atoi(optarg);
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 'b':
 				BASEDN = strdup(optarg);
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 'd':
 				BIND_DN = strdup(optarg);
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 'w':
 				BIND_PW = strdup(optarg);
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case 'f':
 				FILTER = strdup(optarg);
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case '?':
 				usage();
-			break;
-			//|~~~~~~~~~~~~~~~~~~~~~~~~~~~|
+				break;
 			case '*':
 				printf("Invalid argument\n");
 				usage();
-			break;
+				break;
 		}
 	}
 
@@ -164,49 +202,32 @@ int main( int argc, char **argv )
 		usage();
 	}
 
-	if ( !LDAPSEARCH && !GPDB )
-	{
-		// default to GPDB
-		GPDB = 1;
-	}
+	if ( !LDAPSEARCH && !GPDB ){GPDB = 1; } // default to GPDB mode
 
 	if ( BIND_PW == NULL )
 	{
 		BIND_PW = getpass("Password: ");
 	}
 	
+	if ( !PORTNUMBER ) { PORTNUMBER = 389; }
+
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	// get the hostname from URI
-	char *URI_PREFIX = malloc(strlen(URI));
-
-	strncpy(URI_PREFIX, URI, 7);
-	if ( strcmp(URI_PREFIX, LDAP_PREFIX ) == 0 ) 
-	{
-		if ( !PORTNUMBER ) { PORTNUMBER = 389; } // default for ldap://
-		HOSTNAME = URI + 7;
-	}
-
-	strncpy(URI_PREFIX, URI, 8);
-	if ( strcmp(URI_PREFIX, LDAPS_PREFIX ) == 0 ) 
-	{
-		if ( !PORTNUMBER ) { PORTNUMBER = 636; } // default for ldaps://
-		HOSTNAME = URI + 8;
-	}
-	if ( HOSTNAME == NULL ) 
-	{
-		printf("The URI path: %s is invalid\n", URI);
-		usage();
-	}
-
+	/* now we have a good config populate the ldcfg struct */
+	ldcfg->hostname = URI;
+	ldcfg->port = (int)PORTNUMBER;
+	ldcfg->basedn = BASEDN;
+	ldcfg->binddn = BIND_DN;
+	ldcfg->tls = (int)START_TLS;
+	
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	/* init the LDAP object */
-	if ( (ld = ldap_init( HOSTNAME, PORTNUMBER )) == NULL ) 
+	if ( (ld = ldap_init( ldcfg->hostname, ldcfg->port )) == NULL ) 
 	{
 		printf( "ldap_init Failed\n" );
 		exit(3);
 	}
 	/* Print out an informational message. */
-	printf( "\n#-Connecting to host %s at port %d...\n", HOSTNAME, PORTNUMBER );
+	printf( "\n#-Connecting to host %s at port %d...\n", ldcfg->hostname, ldcfg->port );
 
 
 	/* Use the LDAP_OPT_PROTOCOL_VERSION session preference to specify that the client is an LDAPv3 client. */
@@ -277,12 +298,17 @@ int main( int argc, char **argv )
     /* If the filter argument is set
 	 * Perform the LDAP search operation. The client iterates
 	 * through each of the entries returned and prints out the DN of each entry. */
+	
 	if ( FILTER != NULL )
 	{
+		ldcfg->filter = FILTER;
+		getPrefix(FILTER, ldcfg->prefix);
+		
+
 		//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		/* Perform the LDAP operations. In this example, a simple search operation is performed. The client iterates through each of the entries returned and prints out the DN of each entry. */
-		printf("#-Searching %s using filter %s\n", BASEDN, FILTER );
-		rc = ldap_search_ext_s( ld, BASEDN, SCOPE, FILTER, NULL, 0, NULL, NULL, NULL, 0, &result );
+		printf("#-Searching %s using filter %s\n", ldcfg->basedn, ldcfg->filter );
+		rc = ldap_search_ext_s( ld, ldcfg->basedn, SCOPE, ldcfg->filter, NULL, 0, NULL, NULL, NULL, 0, &result );
 		if ( rc != LDAP_SUCCESS ) {
 			fprintf(stderr, "ldap_search_ext_s:%d: %s\n", rc, ldap_err2string(rc));
 			return( 1 );
@@ -302,54 +328,15 @@ int main( int argc, char **argv )
 		if ( total_entries == 0 ){
 			printf("No results found\n");
 		}
+	} else {
+		// no filter was defined but user did specify a binddn so filter on that.
+		getPrefix(ldcfg->binddn, ldcfg->prefix);
 	}
 
 	/* Disconnect from the server. */
-	printf("#-Disconnecting from LDAP\n\n");
+	printf("#-Disconnecting from LDAP\n");
 	ldap_unbind( ld );
-
-
-	/* Print out the suggested pg_hba.conf params */
-	if ( GPDB ) {
-
-		printf("\nGenerating possible pg_hba.conf ldap configurations...\n");
-
-		/* TLS disabled
-		 * Multiple Organizational Units
-		 * Authenticate specific user with given BaseDN */
-		printf("\nNo encryption:\n");
-		/* host    all     all        0.0.0.0/0         ldap ldapserver=dc1.escops.local
-		 *  ldapport=389 ldapsearchattribute=cn ldapbasedn="ou=other,dc=escops,dc=local"
-		 *  ldapbinddn="cn=danl,cn=Users,dc=escops,dc=local" ldapbindpasswd="changeme" */
-		printf("1. Search multiple organizational unit template ( Password left empty )\n");
-		/* ldap ldapserver=win-t66lm4e0ujj.saturn.local ldapport=389 ldapprefix="cn="
-		 * ldapsuffix=",cn=Users,dc=saturn,dc=local" */
-		printf("ldap ldapserver=\"%s\" ldapport=\"%d\" ldapsearchattribute=\"cn\" ldapbasedn=\"%s\" ldapbinddn=\"%s\" ldapbindpasswd=\"<Enter Password Here>\"\n",
-			HOSTNAME,
-			PORTNUMBER,
-			BASEDN,
-			BIND_DN );
-		printf("2. A user from the BaseDN\n");
-		printf("ldap ldapserver=\"%s\" ldapport=\"%d\" ldapprefix=\"cn=\" ldapsuffix=\",%s\"\n",
-			HOSTNAME,
-			PORTNUMBER,
-			BASEDN
-			);
-
-		// Now with TLS enabled
-		printf("\nTLS Encryption enabled:\n");
-		printf("1. Search multiple organizational unit template ( Password left empty )\n");
-		printf("ldap ldapserver=\"%s\" ldapport=\"%d\" ldapsearchattribute=\"cn\" ldapbasedn=\"%s\" ldapbinddn=\"%s\" ldapbindpasswd=\"<Enter Password Here>\" ldaptls=1\n",
-			HOSTNAME,
-			PORTNUMBER,
-			BASEDN,
-			BIND_DN );
-		printf("2. A user from the BaseDN\n");
-		printf("ldap ldapserver=\"%s\" ldapport=\"%d\" ldapprefix=\"cn=\" ldapsuffix=\",%s\" ldaptls=1\n",
-			HOSTNAME,
-			PORTNUMBER,
-			BASEDN
-			);
-	}
+	
+	dumpConfig(ldcfg);
 	return( 0 );
 }
