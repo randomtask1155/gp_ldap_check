@@ -13,51 +13,64 @@ $> ./gp_ldap_check -h
 
 #Usage
 ```
- Behvior Options: 
- -g	Behave like GPDB ( DEFAULT )
- 	When TLS is enabled GPDB will first send a start
- 	TLS request to the LDAP server.  Port 389 is
- 	the preferred port in most implementations. Port 636
- 	is reserved for TLS only and will reject any start
- 	TLS requests because it is expecting the TLS handshake
- 	without the start request.
+Example usage:
+./gpldap_tool -g -s ldap://server.domain.com -b "cn=Users,dc=saturn,dc=local" -d "cn=myuser,cn=Users,dc=saturn,dc=local" -w changeme -f "(cn=someuser)"
 
-  port 389 + NoTLS
-     - GPDB will send unencrypted traffic
-  port 636 + NoTLS
-     - GPDB will send unencrypted traffic
-  port 389 + StartTLS
-     - GPDB will send start TLS request and encrypt traffic
-  port 636 + StartTLS
-     - GPDB will send start TLS request and encrypt traffic
 
- -l	Behave like ldapsearch utility
-  ldapsearch utility can be installed via "yum install openldap-clients" and supports passing
-  in the URI for the ldap server. 
-  port 389 + NoTLS
-     - ldapsearch will send unencrypted traffic
-  port 636 + NoTLS
-     - ldapsearch will send the TLS client hello encrypting traffic
-  port 389 + StartTLS
-     - ldapsearch will send start TLS request and encrypt traffic
-  port 636 + StartTLS
-     - ldapsearch will ignore startTLS switch and immediately
- 	     send the TLS client hello encrypting traffic
- Binding Options:
- -s	(Required) URI for ldap host [ldap://|ldaps://]server.domain.com
- 	ldap://ldapserver.domain.com communicates over port 389
- 	ldaps://ldapserver.domain.com communicates over port 636
- -b	(Required) Search path we apply the filter to
- 	Specify '(cn=username)'  to search for a user within the BaseDN
- -d	(Required) User that will bind with ldap
- 	The user must be the full distinguished name like "cn=user,ou=ASIA,dc=domain,dc=com"
- -t	(Optional) Send StartTLS request
- -p	(Optional) Server port default 389 for ldap and 636 for ldaps
- 	Overrride for ldap URI
- -w	(Optional) User password for binddn user
- -f	(Optional) Ldap Search filter
- 	Specify a user account you want to search for with "(cn=user)"
- -?	This help
+This tool is designed to validate ldap connectivity and return suggested
+ldap configuration parameters for pg_hba.conf
+
+Behvior Options:
+	-g	Behave like GPDB ( DEFAULT )
+		When TLS is enabled GPDB will first send a start
+		TLS request to the LDAP server.  Port 389 is
+		the preferred port in most implementations. Port 636
+		is reserved for TLS only and will reject any start
+		TLS requests because it is expecting the TLS handshake
+		without the start request.
+
+		port 389 + NoTLS
+		   - GPDB will send unencrypted traffic
+		port 636 + NoTLS
+		   - GPDB will send unencrypted traffic
+		port 389 + StartTLS
+		   - GPDB will send start TLS request and encrypt traffic
+		port 636 + StartTLS
+		   - GPDB will send start TLS request and encrypt traffic
+
+	-l	Behave like ldapsearch utility
+		ldapsearch utility can be installed via "yum install openldap-clients" and supports passing
+		in the URI for the ldap server.
+
+		port 389 + NoTLS
+		   - ldapsearch will send unencrypted traffic
+		port 636 + NoTLS
+		   - ldapsearch will send the TLS client hello encrypting traffic
+		port 389 + StartTLS
+		   - ldapsearch will send start TLS request and encrypt traffic
+		port 636 + StartTLS
+		   - ldapsearch will ignore startTLS switch and immediately
+		     send the TLS client hello encrypting traffic
+Binding Options:
+	-s	(Required) hostname or IP of ldap server
+
+	-b	(Required) Specify the Basedn
+		Example: cn=Users,dc=domain,dc=com
+
+	-d	(Required) User that will bind with ldap
+		The user must be the full distinguished name like "cn=user,ou=ASIA,dc=domain,dc=com"
+
+	-t	(Optional) Send StartTLS request
+
+	-p	(Optional) Server port default 389 for ldap and 636 for ldaps
+		Overrride for ldap URI
+
+	-w	(Optional) User password for binddn user
+
+	-f	(Optional) Ldap Search filter
+		Specify a user account you want to search for with "(cn=user)"
+
+	-?	This help
 ```
 
 #Example 1
