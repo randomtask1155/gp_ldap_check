@@ -76,12 +76,12 @@ void getPrefix(char *filter, char *dest) {
 	size_t i;
 	for (i = 0; i < strlen(filter) && filter[i] != '\0'; i++) {
 		if ( filter[i] != 40 ) { // exclude (
-			FilterPrefix[prefixPosition] = filter[i];
-			prefixPosition += 1;
 			if ( filter[i] == 61 ) { // if we reached the = sign
 				FilterPrefix[prefixPosition] = '\0';
 				break;
 			}
+			FilterPrefix[prefixPosition] = filter[i];
+			prefixPosition += 1;
 		}
 	}
 	strcpy(dest, FilterPrefix);
