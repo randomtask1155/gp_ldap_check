@@ -99,10 +99,22 @@ typedef struct {
 } ldapconfig;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/* Terminate the char arrah with nulls */
+void nullChar( char *c ) {
+	int i = 0;
+	for ( i = 0; i < strlen(c); i ++ ) {
+		c[i] = '\0';
+	}
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Build the config strings based on the configuration */
 void dumpConfig(ldapconfig *ldcfg) {
 	char output[2048];
 	char printbuf[2048];
+
+	nullChar(printbuf);
+	nullChar(output);
 
 	strcat(output, "ldap ");
 	if (ldcfg->tls) {
